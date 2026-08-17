@@ -103,11 +103,6 @@ A structural time-series model (local linear trend + mean-reversion toward an in
 
 These are transcribed at ~5-year resolution with key turning-point years added, accurate to within a few index points — enough to show each market's *character* when fed to the forecaster. They are not a substitute for the full quarterly OECD series; the code sandbox cannot reach the OECD API directly, so the figures were sourced via web lookup of the published statistics and documented inline with their provenance. Feeding them to the forecaster is itself illuminating: Japan and Switzerland produce ~2.4–2.5× uncertainty bands (their histories contain crashes, so the honest model refuses to be confident), while Austria's smoother history yields the tightest band — still wide. The lesson the tool delivers is that for the boom-bust markets, no point forecast is meaningful at all.
 
-## Price feedback (important fix)
-
-Earlier versions had a correctness bug: property prices only responded to headcount supply/demand pressure and ignored credit conditions. They now anchor to **median purchasing power** — what the median qualified buyer can borrow (given rate, term, LTV) plus their down payment. When mortgage rates rise, max purchase price falls for everyone and prices are pulled down toward the new clearing level, with a sticky ±15%/year adjustment cap (housing reprices slowly, especially downward).
-
-Consequence: the model now demonstrates the core thesis from housing economics. Longer loan terms don't make housing more affordable — they let buyers bid more, which gets capitalized into higher prices. In the simulation, 35-year loans produce a price-to-income ratio roughly 2x that of 10-year loans, holding everything else equal. Raising the mortgage rate from 1% to 10% roughly halves median prices.
 
 ## What gets measured
 
