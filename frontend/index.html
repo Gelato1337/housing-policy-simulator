@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Housing Policy Simulator</title>
+<link rel="stylesheet" href="static/styles.css?v=14" />
+</head>
+<body>
+<div class="app-container">
+<h1>Housing Policy Simulator</h1>
+<p class="subtitle">Agent-based model with a Python backend. Edit policies, run, compare. <a href="/finance" style="color:var(--color-text-info)">Personal decision comparator →</a></p>
+
+<div class="v4">
+  <aside class="pn">
+    <div class="tabs" role="tablist">
+      <div class="tab active" data-tab="controls" role="tab">Controls</div>
+      <div class="tab" data-tab="policies" role="tab">Policies</div>
+      <div class="tab" data-tab="sim" role="tab">Sim</div>
+      <div class="tab" data-tab="demo" role="tab">Demog.</div>
+      <div class="tab" data-tab="params" role="tab">Params</div>
+    </div>
+    <section class="tab-body active" id="t-controls">
+      <p class="pt">Presets</p>
+      <div class="pr" id="preset-buttons"></div>
+      <div id="preset-diff" class="preset-diff" aria-live="polite"></div>
+
+      <p class="pt">Structural levers</p>
+      <div class="rw"><div class="lb"><span>Max loan term</span><strong id="v-loan">25 yr</strong></div><input type="range" id="loan" min="5" max="40" value="25" step="1" /></div>
+      <div class="rw"><div class="lb"><span>Mortgage interest rate</span><strong id="v-mrate">3.0%</strong></div><input type="range" id="mrate" min="0" max="120" value="30" step="2" /></div>
+      <div class="rw"><div class="lb"><span>Max loan-to-value</span><strong id="v-ltv">90%</strong></div><input type="range" id="ltv" min="50" max="100" value="90" step="5" /></div>
+      <div class="rw"><div class="lb"><span>Construction / year</span><strong id="v-build">0.5%</strong></div><input type="range" id="build" min="0" max="100" value="5" step="1" /></div>
+      <div class="rw"><div class="lb"><span>Public housing share</span><strong id="v-pub">0%</strong></div><input type="range" id="pub" min="0" max="100" value="0" step="5" /></div>
+      <div class="rw checkbox-row"><input type="checkbox" id="dep" /><label for="dep">Tokyo depreciation</label></div>
+
+      <p class="pt">Built-in taxes</p>
+      <div class="rw">
+        <div class="lb"><span>Progressive multi-home tax</span><strong id="v-tax">0%</strong></div>
+        <input type="range" id="tax" min="0" max="200" value="0" step="2" />
+      </div>
+      <div class="rw">
+        <div class="lb"><span>Vacancy tax</span><strong id="v-vac">0%</strong></div>
+        <input type="range" id="vac" min="0" max="200" value="0" step="2" />
+      </div>
+
+      <p class="pt">Market friction</p>
+      <div class="rw">
+        <div class="lb"><span>Buyer pickiness</span><strong id="v-picky">0.0</strong></div>
+        <input type="range" id="picky" min="0" max="100" value="0" step="5" />
+      </div>
+      <p class="hint">Probability buyers reject a match. Higher = pickier buyers, fewer transactions complete. 0 = frictionless. See <strong>Demographics</strong> for taste diversity.</p>
+
+      <p class="hint">Custom formula policies live in the <strong>Policies</strong> tab.</p>
+
+      <button id="run" class="primary">Run simulation</button>
+      <p class="status" id="status">Ready</p>
+    </section>
+
+    <section class="tab-body" id="t-policies">
+      <p class="hint">Edit built-in tax formulas or write your own. Each policy returns euros to add to a household's savings (negative = tax, positive = subsidy).</p>
+      <div id="policy-list"></div>
+      <button class="add-btn" id="add-custom">+ Add custom policy</button>
+      <div class="examples" id="examples-row"></div>
+    </section>
+
+    <section class="tab-body" id="t-sim">
+      <p class="hint">World size and timeline. These persist across preset changes.</p>
+      <div class="settings-block">
+        <p class="sb-title">Population</p>
+        <div class="rw"><div class="lb"><span>Households</span><strong id="v-N">2,000</strong></div><input type="range" id="N" min="500" max="10000" value="2000" step="500" /></div>
+      </div>
+      <div class="settings-block">
+        <p class="sb-title">Housing stock</p>
+        <div class="rw"><div class="lb"><span>Properties</span><strong id="v-M">1,800</strong></div><input type="range" id="M" min="400" max="9000" value="1800" step="400" /></div>
+      </div>
+      <div class="settings-block">
+        <p class="sb-title">Time</p>
+        <div class="rw"><div class="lb"><span>Years</span><strong id="v-yrs">50</strong></div><input type="range" id="yrs" min="10" max="200" value="50" step="5" /></div>
+      </div>
+      <div class="settings-block">
+        <p class="sb-title">Reproducibility</p>
+        <div class="rw"><div class="lb"><span>Seed</span><strong id="v-seed">42</strong></div><input type="range" id="seed" min="1" max="200" value="42" step="1" /></div>
+      </div>
+    </section>
+
+    <section class="tab-body" id="t-demo">
+      <p class="hint">Initial population characteristics. These shape who's in the world at year 0 — incomes, ages, ownership distribution, tastes.</p>
+
+      <div class="settings-block">
+        <p class="sb-title">Income</p>
+        <div class="rw"><div class="lb"><span>Median income</span><strong id="v-incmu">€40,000</strong></div><input type="range" id="incmu" min="9.5" max="11.5" value="10.6" step="0.1" /></div>
+        <div class="rw"><div class="lb"><span>Income inequality</span><strong id="v-incsig">0.40</strong></div><input type="range" id="incsig" min="0.15" max="0.85" value="0.40" step="0.05" /></div>
+      </div>
+
+      <div class="settings-block">
+        <p class="sb-title">Age</p>
+        <div class="rw"><div class="lb"><span>Mean age</span><strong id="v-agemu">45 yr</strong></div><input type="range" id="agemu" min="30" max="60" value="45" step="1" /></div>
+        <div class="rw"><div class="lb"><span>Age spread</span><strong id="v-agesig">15 yr</strong></div><input type="range" id="agesig" min="8" max="22" value="15" step="1" /></div>
+      </div>
+
+      <div class="settings-block">
+        <p class="sb-title">Housing market start</p>
+        <div class="rw"><div class="lb"><span>Median property price</span><strong id="v-bprice">€180,000</strong></div><input type="range" id="bprice" min="50000" max="450000" value="180000" step="10000" /></div>
+        <div class="rw"><div class="lb"><span>Starting homeownership</span><strong id="v-iown">60%</strong></div><input type="range" id="iown" min="20" max="90" value="60" step="5" /></div>
+      </div>
+
+      <div class="settings-block">
+        <p class="sb-title">Taste heterogeneity</p>
+        <div class="rw"><div class="lb"><span>Quality preference spread</span><strong id="v-qspread">0.25</strong></div><input type="range" id="qspread" min="0" max="60" value="25" step="5" /></div>
+        <p class="hint">How varied are buyer tastes? 0 = everyone wants the same; 0.6 = very diverse preferences. Interacts with Buyer pickiness.</p>
+      </div>
+
+      <button id="reset-demo" style="width:100%; margin-top:8px;">Reset to defaults</button>
+    </section>
+
+    <section class="tab-body" id="t-params">
+      <div class="params-list">
+        <div class="pgroup">Household (h)</div>
+        <div><span class="pname">h.age</span> <span class="pdesc">years old</span></div>
+        <div><span class="pname">h.income</span> <span class="pdesc">annual gross EUR</span></div>
+        <div><span class="pname">h.savings</span> <span class="pdesc">liquid wealth EUR</span></div>
+        <div><span class="pname">h.num_props</span> <span class="pdesc">properties owned</span></div>
+        <div><span class="pname">h.renter</span> <span class="pdesc">true if renting</span></div>
+        <div><span class="pname">h.residence_value</span> <span class="pdesc">EUR value of home</span></div>
+        <div><span class="pname">h.total_prop_value</span> <span class="pdesc">EUR all properties</span></div>
+        <div><span class="pname">h.first_time_buyer</span> <span class="pdesc">true the year they first buy</span></div>
+
+        <div class="pgroup">Property (p) — inside per-property policies</div>
+        <div><span class="pname">p.value</span> <span class="pdesc">land + building EUR</span></div>
+        <div><span class="pname">p.land_value</span> <span class="pdesc">EUR (no depreciation)</span></div>
+        <div><span class="pname">p.building_value</span> <span class="pdesc">EUR (can depreciate)</span></div>
+        <div><span class="pname">p.age</span> <span class="pdesc">years since built</span></div>
+        <div><span class="pname">p.condition</span> <span class="pdesc">0–1 maintenance</span></div>
+        <div><span class="pname">p.is_residence</span> <span class="pdesc">true if primary home</span></div>
+        <div><span class="pname">p.is_rented</span> <span class="pdesc">true if rented out</span></div>
+        <div><span class="pname">p.is_vacant</span> <span class="pdesc">true if nobody lives there</span></div>
+        <div><span class="pname">p.property_index</span> <span class="pdesc">1=first, 2=second, etc.</span></div>
+
+        <div class="pgroup">Globals</div>
+        <div><span class="pname">median_income</span> <span class="pdesc">market median this year</span></div>
+        <div><span class="pname">median_price</span> <span class="pdesc">market median price</span></div>
+        <div><span class="pname">year</span> <span class="pdesc">simulation year</span></div>
+        <div><span class="pname">slider</span> <span class="pdesc">policy's slider value (0–200)</span></div>
+
+        <div class="pgroup">Math helpers</div>
+        <div><span class="pdesc">sqrt, log, exp, sin, cos, floor, ceil, pi, e, abs, min, max, pow</span></div>
+
+        <div class="pgroup">Return</div>
+        <div><span class="pdesc">Euros to add to h.savings (negative = tax, positive = subsidy)</span></div>
+      </div>
+    </section>
+  </aside>
+
+  <main>
+    <div class="mg">
+      <div class="mc"><p class="ml">Housing burden</p><p class="mv" id="m-bur">—</p><p class="md" id="d-bur"></p></div>
+      <div class="mc"><p class="ml">% overburdened (&gt;40%)</p><p class="mv" id="m-ovr">—</p><p class="md" id="d-ovr"></p></div>
+      <div class="mc"><p class="ml">Homeownership</p><p class="mv" id="m-own">—</p><p class="md" id="d-own"></p></div>
+      <div class="mc"><p class="ml">% housed</p><p class="mv" id="m-hou">—</p><p class="md" id="d-hou"></p></div>
+      <div class="mc"><p class="ml">Price / income</p><p class="mv" id="m-pti">—</p><p class="md" id="d-pti"></p></div>
+      <div class="mc"><p class="ml">Multi-owners</p><p class="mv" id="m-mul">—</p><p class="md" id="d-mul"></p></div>
+      <div class="mc"><p class="ml">Median mortgage debt</p><p class="mv" id="m-dbt">—</p><p class="md" id="d-dbt"></p></div>
+      <div class="mc"><p class="ml">Wealth Gini</p><p class="mv" id="m-gin">—</p><p class="md" id="d-gin"></p></div>
+    </div>
+    <div class="ch">
+      <div class="cw"><p class="ct">Housing burden (% of income)</p><canvas id="c1"></canvas></div>
+      <div class="cw"><p class="ct">% households overburdened (&gt;40%)</p><canvas id="c2"></canvas></div>
+      <div class="cw"><p class="ct">Homeownership rate</p><canvas id="c3"></canvas></div>
+      <div class="cw"><p class="ct">Price-to-income</p><canvas id="c4"></canvas></div>
+      <div class="cw"><p class="ct">% income left after housing</p><canvas id="c5"></canvas></div>
+      <div class="cw"><p class="ct">Multi-property ownership %</p><canvas id="c6"></canvas></div>
+    </div>
+
+    <div class="glossary">
+      <p class="pt">What the metrics mean</p>
+      <div class="glossary-grid">
+        <div class="gloss-item">
+          <p class="gloss-term">Housing burden <span class="dir good">lower is better</span></p>
+          <p class="gloss-desc">Median household's housing cost as a share of <em>disposable</em> income (gross income minus ~30% for Finnish tax + social security). Housing cost = mortgage payments + upkeep + property tax for owners, or rent for renters. 20% means the typical household spends a fifth of take-home pay on housing.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">% overburdened (&gt;40%) <span class="dir good">lower is better</span></p>
+          <p class="gloss-desc">Share of households spending more than 40% of disposable income on housing. 40% is the standard Eurostat threshold for "housing cost overburden" — above it, a household is considered financially stretched by housing. This is a tail measure: it catches the people in trouble, not the average.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">Homeownership <span class="dir bad">higher usually better*</span></p>
+          <p class="gloss-desc">Share of households that own the home they live in (vs renting). *Not always good: the Vienna and Swiss models deliberately have low ownership with excellent affordability, so read this alongside burden, not on its own.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">% housed <span class="dir bad">higher is better</span></p>
+          <p class="gloss-desc">Share of households with any home at all (owned or rented). The complement is effective homelessness in the model — households with no residence. Should stay near 100% unless supply collapses.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">Price / income <span class="dir good">lower is better</span></p>
+          <p class="gloss-desc">Median home price divided by median <em>gross</em> annual income. The standard international affordability yardstick. ~3–4 is considered affordable, 7+ severely unaffordable (Helsinki reality is roughly 7–8). Watch the <em>direction it moves</em> between scenarios more than the absolute level.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">Multi-owners <span class="dir good">lower is better*</span></p>
+          <p class="gloss-desc">Share of households owning 2+ properties (landlords / investors). *Higher concentration generally means more renters dependent on landlords and more wealth inequality, though some rental supply is necessary — context matters.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">Median mortgage debt <span class="dir good">lower is better</span></p>
+          <p class="gloss-desc">The median household's total outstanding mortgage balance. High and persistent debt across scenarios signals the "long-loan trap" — people owing large sums for decades rather than paying down.</p>
+        </div>
+        <div class="gloss-item">
+          <p class="gloss-term">Wealth Gini <span class="dir good">lower is better</span></p>
+          <p class="gloss-desc">Inequality of housing wealth across all households, 0 to 1. 0 = everyone holds identical property wealth; 1 = one household owns everything. Computed as the Gini coefficient of each household's total property value. Finnish wealth Gini is roughly 0.6 in reality; treat moves of 0.02+ between scenarios as meaningful.</p>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:10px;">All metrics are the value in the final simulated year. The dashed grey line on each chart is the baseline; the coloured line is the current run. "▲/▼ vs baseline" on each card is coloured green when the change is in the better direction for that metric, red otherwise.</p>
+    </div>
+  </main>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="static/app.js?v=14"></script>
+</body>
+</html>

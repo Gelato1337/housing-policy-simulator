@@ -1,0 +1,56 @@
+name: Deploy demo to GitHub Pages
+
+# Publishes the static "demo mode" mirror (frontend + precomputed fixtures +
+# mock backend) to GitHub Pages. The real app is the FastAPI backend — see
+# HOSTING.md; this workflow only ships the client-side demo.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Regenerate fixtures from the real backend so the demo can never drift
+      # from the committed simulator. Falls back to the committed fixtures if
+      # anything here fails.
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Regenerate demo fixtures
+        # Non-fatal: if anything here fails, the committed fixtures in
+        # frontend/mock/ are used instead, so the deploy never breaks.
+        continue-on-error: true
+        run: |
+          python -m pip install --quiet -r requirements.txt
+          python scripts/gen_mock_fixtures.py --out frontend/mock
+
+      - name: Assemble Pages site
+        run: bash scripts/build_pages.sh _site
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

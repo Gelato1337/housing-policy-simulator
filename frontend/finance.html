@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Housing Decision Comparator</title>
+<link rel="stylesheet" href="static/styles.css?v=14" />
+</head>
+<body>
+<div class="app-container">
+<h1>Housing Decision Comparator</h1>
+<p class="subtitle">Deterministic side-by-side projection of personal housing/investing decisions. Not a policy model — this is "what happens to <em>my</em> money." <a href="/" style="color:var(--color-text-info)">← Policy simulator</a> <span style="opacity:0.5;font-size:11px;">· build v14 (presets add, budget explained)</span></p>
+
+<div class="v4">
+  <aside class="pn">
+    <p class="pt">Shared assumptions</p>
+    <div class="rw"><div class="lb"><span>Horizon</span><strong id="v-horizon">30 yr</strong></div><input type="range" id="horizon" min="5" max="50" value="30" step="1" /></div>
+    <div class="rw"><div class="lb"><span>Stocks / index return</span><strong id="v-stock">7.0%</strong></div><input type="range" id="stock" min="0" max="150" value="70" step="5" /></div>
+    <div class="rw"><div class="lb"><span>House appreciation</span><strong id="v-appr">2.0%</strong></div><input type="range" id="appr" min="-30" max="100" value="20" step="5" /></div>
+    <div class="rw"><div class="lb"><span>Rent inflation</span><strong id="v-rentinf">2.0%</strong></div><input type="range" id="rentinf" min="0" max="80" value="20" step="5" /></div>
+    <div class="rw"><div class="lb"><span>Monthly budget</span><strong id="v-budget">€1,800</strong></div><input type="range" id="budget" min="500" max="6000" value="1800" step="100" /></div>
+    <div class="settings-block" style="margin-top:8px;">
+      <p class="sb-title">How the budget works (read this)</p>
+      <p class="hint" style="margin:0;">Every scenario gets the <strong>same monthly budget</strong> and the <strong>same starting capital</strong>. Each year: housing cost (mortgage/rent/upkeep) is paid first, and <strong>whatever is left of the budget is invested into stocks/index</strong> at the return above. So the model already does both things automatically — a cheaper-housing scenario simply has more left over to invest, and that compounding is counted. "Rent then buy" invests the surplus while renting, then uses the grown pot as a bigger down payment. "Buy now" takes the loan and invests whatever the budget leaves after the mortgage. You don't choose between those — both are modelled; the comparison shows which comes out ahead.</p>
+    </div>
+    <div class="rw checkbox-row" style="margin-top:8px;"><input type="checkbox" id="realterms" /><label for="realterms">Show in real terms (today's €)</label></div>
+    <p class="hint">Off = nominal euros (the actual number on a future bank statement). On = every figure is discounted back to today's purchasing power, so €1M in 30 years shows as what it could actually buy now (roughly €410k at 3% inflation). Use this to compare scenarios by real wealth, not inflated headline numbers.</p>
+
+    <p class="pt">Euribor path (variable loans)</p>
+    <p class="hint">Comma-separated annual benchmark rate %, one per year. The last value is held for remaining years. Example: a spike — <code>0.5,0.5,4,4,3</code></p>
+    <textarea id="euribor" class="pc-formula" style="min-height:38px;">2.5</textarea>
+
+    <p class="pt">House appreciation source</p>
+    <div class="rw">
+      <label class="checkbox-row" style="font-size:11px;">
+        <input type="radio" name="apprsrc" value="flat" checked /> Flat rate (slider above)
+      </label>
+    </div>
+    <div class="rw">
+      <label class="checkbox-row" style="font-size:11px;">
+        <input type="radio" name="apprsrc" value="abm" /> From policy simulator
+      </label>
+    </div>
+    <button id="pull-abm" style="width:100%;font-size:11px;margin-bottom:4px;">Pull price path from policy sim</button>
+    <p class="hint" id="abm-note" style="min-height:14px;"></p>
+
+    <p class="pt">Bull / bear variance</p>
+    <div class="rw checkbox-row"><input type="checkbox" id="var-on" /><label for="var-on">Show bear / base / bull range</label></div>
+    <p class="hint">Projects three branches. <strong>Bull</strong> = rates fall, house prices rise faster, stocks do better. <strong>Bear</strong> = the mirror image. The width between them is how much the outcome depends on things you can't control.</p>
+    <div id="var-controls" style="display:none;">
+      <div class="rw"><div class="lb"><span>Rate swing ±</span><strong id="v-vrate">1.5%</strong></div><input type="range" id="v-ratedelta" min="0" max="60" value="15" step="5" /></div>
+      <div class="rw"><div class="lb"><span>House appreciation swing ±</span><strong id="v-vappr">3.0%</strong></div><input type="range" id="v-apprdelta" min="0" max="80" value="30" step="5" /></div>
+      <div class="rw"><div class="lb"><span>Stock bull (+ vs base)</span><strong id="v-vbull">+8%</strong></div><input type="range" id="v-bulldelta" min="0" max="160" value="80" step="10" /></div>
+      <div class="rw"><div class="lb"><span>Stock bear (− vs base)</span><strong id="v-vbear">−12%</strong></div><input type="range" id="v-beardelta" min="0" max="200" value="120" step="10" /></div>
+    </div>
+
+    <p class="pt">Preset comparisons</p>
+    <div class="pr" id="preset-buttons"></div>
+
+    <button id="run" class="primary">Run comparison</button>
+    <p class="status" id="status">Ready</p>
+  </aside>
+
+  <main>
+    <div id="scenario-cards"></div>
+    <button class="add-btn" id="add-scenario">+ Add scenario</button>
+
+    <div class="ch" style="margin-top:12px;">
+      <div class="cw" style="height:200px;"><p class="ct">Net worth over time (€)</p><canvas id="c-net"></canvas></div>
+      <div class="cw" style="height:200px;"><p class="ct">Cumulative interest paid to bank (€)</p><canvas id="c-int"></canvas></div>
+      <div class="cw" style="height:200px;"><p class="ct">Investments (€)</p><canvas id="c-inv"></canvas></div>
+      <div class="cw" style="height:200px;"><p class="ct">Cumulative housing cost (€)</p><canvas id="c-hou"></canvas></div>
+      <div class="cw" style="height:200px;grid-column:1 / -1;"><p class="ct">Mortgage rate in force (%) — shows variable-rate shocks</p><canvas id="c-rate"></canvas></div>
+    </div>
+
+    <details class="settings-block" style="margin-top:14px;">
+      <summary style="cursor:pointer;font-size:12px;font-weight:500;list-style:none;">▸ Bayesian price forecast (advanced — optional)</summary>
+      <div style="margin-top:8px;">
+      <p class="hint">An honesty tool, not a crystal ball. Enter a price series (comma-separated, oldest first), pull one from the policy sim, or load a vetted real-world series below. <strong>The point is the width of the band, not the median line.</strong> House prices are near-random-walk; this shows how uncertain any forecast must honestly be.</p>
+      <textarea id="fc-history" class="pc-formula" style="min-height:38px;">150000,160000,172000,185000,200000,215000,225000,210000,208000,212000</textarea>
+      <div class="rw" style="margin-top:6px;">
+        <div class="lb"><span>Real-world series</span></div>
+        <select id="fc-series" style="width:100%;font-size:11px;">
+          <option value="">— pick a vetted series —</option>
+          <option value="japan">Japan (bubble + 20-yr collapse)</option>
+          <option value="switzerland">Switzerland (flat, cyclical)</option>
+          <option value="finland">Finland (recent slump)</option>
+          <option value="austria">Austria (steady growth)</option>
+        </select>
+      </div>
+      <button id="fc-loadhist" style="width:100%;font-size:11px;margin:4px 0;">Load + forecast selected series</button>
+      <p class="hint" id="fc-prov" style="min-height:14px;font-style:italic;"></p>
+      <div class="rw"><div class="lb"><span>Forecast horizon</span><strong id="v-fchorizon">15 yr</strong></div><input type="range" id="fc-horizon" min="3" max="30" value="15" step="1" /></div>
+      <div class="rw"><div class="lb"><span>Income anchor (price/income)</span><strong id="v-fcpti">5.0</strong></div><input type="range" id="fc-pti" min="20" max="120" value="50" step="5" /></div>
+      <div style="display:flex;gap:6px;">
+        <button id="fc-run" style="flex:1;font-size:11px;">Fit & forecast</button>
+        <button id="fc-frompath" style="flex:1;font-size:11px;">Use ABM price path</button>
+      </div>
+      <p class="hint" id="fc-note" style="min-height:14px;"></p>
+      <div class="cw" style="height:230px;margin-top:6px;"><p class="ct">Price fan chart — shaded = 90% / 60% credible bands</p><canvas id="c-forecast"></canvas></div>
+      </div>
+    </details>
+
+
+    <div id="summary-table" style="margin-top:12px;"></div>
+  </main>
+</div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script src="static/finance.js?v=14"></script>
+</body>
+</html>
